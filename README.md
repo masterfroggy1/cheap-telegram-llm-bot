@@ -19,32 +19,17 @@ Telegram was chosen deliberately, not by default: native file handling, a built-
 
 ## Architecture
 
-Telegram message
-      │
-      ▼
- ┌─────────────────────────────┐
- │  python-telegram-bot         │  (routing, handlers)
- └─────────────┬────────────────┘
-               │
-      ┌────────┴─────────┐
-      ▼                   ▼
- Voice message        File / Image
-      │                   │
-      ▼                   ▼
- Google Cloud          Scanned doc → OCR (pytesseract, rus+eng)
- Speech-to-Text         Photo/image → vision model (OpenRouter)
-      │                   │
-      └────────┬──────────┘
-               ▼
-   Documents normalized to Markdown
-   (python-docx / python-pptx / openpyxl)
-               │
-               ▼
-   Prepared context + task → LLM (DeepSeek via OpenRouter)
-   + Tavily API for web search when needed
-               │
-               ▼
-        Formatted reply in Telegram
+**1. Message comes in from Telegram**, routed by `python-telegram-bot`.
+
+**2. Input is processed depending on type:**
+- Voice message → Google Cloud Speech-to-Text → cleaned transcript
+- Scanned/photographed document → OCR (`pytesseract`, rus+eng)
+- Regular photo/image → vision model (via OpenRouter)
+- Word/Excel/PowerPoint files → normalized to Markdown (`python-docx`, `python-pptx`, `openpyxl`)
+
+**3. Prepared context + task is sent to the LLM** — DeepSeek via OpenRouter, with Tavily API available for web search when needed.
+
+**4. Reply is formatted and sent back** in Telegram.
 
 The core design idea: do as much preprocessing as possible *before* the request hits the model — convert documents to Markdown, transcribe and clean voice input, route images to the right pipeline (OCR vs. vision) — so the LLM receives a ready, minimal context instead of raw files. This is what keeps token usage (and cost) low.
 
